@@ -1,0 +1,12 @@
+.idea/
+Ontovae-GONNECT-metrics.ipynb
+tmp.py
+data/*
+splits/*
+
+
+## data files that are useful
+#!data/TCGA_complete_bp_top1k.csv
+!data/go-basic.obo
+!data/gene_annot_ontovae.txt
+#!splits/cached_ontology.pkl
