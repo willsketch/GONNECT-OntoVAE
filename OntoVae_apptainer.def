@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: condaforge/miniforge3:latest
+
+%files
+    environment.yml /environment.yml
+    data/gene_annot_ontovae.txt OntoVae/data/gene_annot_ontovae.txt
+    data/go-basic.obo OntoVae/data/go-basic.obo
+    data/TCGA_complete_bp_top1k.csv OntoVae/data/TCGA_complete_bp_top1k.csv
+    data_splits.py OntoVae/data_splits.py
+    OntoVAE-Runs.py OntoVae/OntoVAE-Runs.py
+    splits/cached_ontology.pkl OntoVae/splits/cached_ontology.pkl
+
+%post
+    # Update and install necessary packages
+    apt-get update && apt-get install -y tree time vim ncdu speedtest-cli build-essential
+
+    # Create a new Conda environment using the environment files.
+    mamba env create --quiet --file /environment.yml
+
+    # Clean up
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+    mamba clean --all -y
+
+    # Now add the script to activate the Conda environment
+    echo '. "/opt/conda/etc/profile.d/conda.sh"' >> $APPTAINER_ENVIRONMENT
+    echo 'conda activate ontovae' >> $APPTAINER_ENVIRONMENT
+
+%runscript
+    cd OntoVae/
+    python data_splits.py
+    exec python OntoVAE-Runs.py "$@"

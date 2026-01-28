@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import pickle
+import argparse
 import torch
 import torch.nn.functional as F
 from onto_vae.ontobj import Ontobj
@@ -10,6 +11,25 @@ from onto_vae.vae_model import OntoVAE
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
 
+
+# --------------------------
+# pass arguments
+# --------------------------
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run OntoVAE experiments")
+    parser.add_argument("--expr_data_path", type=str, default="data/TCGA_complete_bp_top1k.csv")
+    parser.add_argument("--split_dir", type=str, default="splits")
+    parser.add_argument("--obo_path", type=str, default="data/go-basic.obo")
+    parser.add_argument("--gene_annot_path", type=str, default="data/gene_annot_ontovae.txt")
+    parser.add_argument("--model_dir", type=str, default="models")
+    parser.add_argument("--seeds", type=int, nargs="+", default=[2,3,4,5,6])
+    parser.add_argument("--top_thresh_ontobj", type=int, default=1000)
+    parser.add_argument("--bottom_thresh_ontobj", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=300)
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--lr", type=int, default=1e-4)
+    parser.add_argument("--kl_coeff", type=float, default=1e-4)
+    return parser.parse_args()
 
 # --------------------------
 # Utility functions
@@ -221,29 +241,44 @@ def run_experiment(run_seed, expr_data_path, split_dir, nan_cols, base_ontObj, m
 # Example main
 # --------------------------
 if __name__ == "__main__":
-    # Paths
-    expr_data_path = 'data/TCGA_complete_bp_top1k.csv'
-    split_dir = 'splits'
-    obo_path = 'data/go-basic.obo'
-    gene_annot_path = 'data/gene_annot_ontovae.txt'
+    # args
+    args = parse_args()
+    expr_data_path = args.expr_data_path
+    split_dir = args.split_dir
+    obo_path = args.obo_path
+    gene_annot_path = args.gene_annot_path
     nan_cols = ['sample_type', 'cancer_type', 'tumor_tissue_site', 'stage_pathologic_stage']
     ontology_description = 'GO-basic'
-    model_dir = 'models'
-    top_thresh_ontobj = 100
-    bottom_thresh_ontobj = 30
+    model_dir = args.model_dir
+    top_thresh_ontobj = args.top_thresh_ontobj
+    bottom_thresh_ontobj = args.bottom_thresh_ontobj
+    epochs = args.epochs
+    batch_size = args.batch_size
+    lr = args.lr
+    kl_coeff = args.kl_coeff
 
     # Seeds to run
-    seeds = [2, 3, 4, 5, 6]
+    seeds = args.seeds
 
     # --------------------------
     # Initialize ontology
     # --------------------------
     cached_ontObj_path = os.path.join(split_dir, 'cached_ontology.pkl')
+    trim_key = f"{top_thresh_ontobj}_{bottom_thresh_ontobj}"
+    rebuild_ontology = True
+
     if os.path.exists(cached_ontObj_path):
         with open(cached_ontObj_path, "rb") as f:
             BaseOntObj = pickle.load(f)
-        print("Loaded cached ontology")
-    else:
+
+        # check whether its correct ontology
+        if trim_key in BaseOntObj.data and BaseOntObj.data[trim_key] is not None:
+            print("Loaded cached ontology")
+            rebuild_ontology = False
+        else:
+            print("Initializing ontology")
+
+    if rebuild_ontology:
         BaseOntObj = setup_ontology(obo_path, gene_annot_path, top_thresh=top_thresh_ontobj,
                                     bottom_thresh=bottom_thresh_ontobj,
                                     description=ontology_description)
@@ -262,8 +297,8 @@ if __name__ == "__main__":
             model_dir=model_dir,
             top_thresh_ontobj=top_thresh_ontobj,
             bottom_thresh_ontobj=bottom_thresh_ontobj,
-            batch_size=2,
-            epochs=1,
-            lr=1e-4,
-            kl_coeff=1e-4
+            batch_size=batch_size,
+            epochs=epochs,
+            lr=lr,
+            kl_coeff=kl_coeff,
         )
